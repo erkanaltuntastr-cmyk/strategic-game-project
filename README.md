@@ -1,6 +1,12 @@
 # Strategic Game Project
 
-A small browser-based strategy prototype inspired by the readability and pace of classic 90s empire games.
+A small browser-based, turn-based strategy prototype inspired by the readability and pace of classic 90s empire-building games, especially the simplicity of Civilization II.
+
+The goal is not to copy any existing game. The goal is to capture the same clear map-based strategy feeling with a much smaller and simpler ruleset.
+
+Core principle:
+
+> Visual quality should stay high. Gameplay complexity should start low.
 
 ## Current prototype
 
@@ -13,18 +19,27 @@ A small browser-based strategy prototype inspired by the readability and pace of
 
 ## Run locally
 
-Open [index.html](C:/Users/erkan/Documents/GitHub/strategic-game-project/index.html) in a browser.
+Open [`index.html`](./index.html) in a browser.
+
+No install, no backend, no external dependencies.
 
 ## Project structure
 
-- `index.html` - main UI shell
-- `style.css` - map and panel styling
-- `game.js` - game state, rendering, turn logic, and AI
-- `docs/GAME_PLAN.md` - source design plan
+- `index.html` — main UI shell
+- `style.css` — map and panel styling
+- `game.js` — game state, rendering, turn logic, and AI
+- `docs/GAME_PLAN.md` — source design plan and development direction
+
+## Design plan
+
+Read the full plan here:
+
+[`docs/GAME_PLAN.md`](./docs/GAME_PLAN.md)
 
 ## Next good steps
 
-1. Add keyboard controls and a unit action queue.
-2. Improve AI pathing and city placement logic.
-3. Add a start screen and procedural map presets.
-4. Expand combat with health bars and terrain defence bonuses.
+1. Make the map visually richer while keeping the rules simple.
+2. Improve mobile layout without changing the core game logic.
+3. Add clearer unit/city selection feedback.
+4. Improve AI city placement and attack decisions.
+5. Add health bars and terrain defence bonuses only after the core loop feels good.
