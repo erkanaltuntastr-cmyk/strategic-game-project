@@ -45,6 +45,7 @@ const legendEl = document.getElementById("legend");
 const endTurnBtn = document.getElementById("end-turn-btn");
 const nextUnitBtn = document.getElementById("next-unit-btn");
 const restartBtn = document.getElementById("restart-btn");
+const debugIndicatorEl = document.getElementById("debug-indicator");
 
 function init() {
   renderLegend();
@@ -672,6 +673,7 @@ function getTileBadge(tile) {
 
 function render() {
   document.body.classList.toggle("debug-visible", state.debugVisible);
+  debugIndicatorEl.textContent = state.debugVisible ? "Debug On" : "Debug Off";
   turnCounterEl.textContent = String(state.turn);
   renderMap();
   renderSelection();
@@ -735,6 +737,7 @@ function renderMap() {
         <span class="yield">${hidden ? "" : `F${yields.food} P${yields.production} G${yields.gold}`}</span>
         ${badge ? `<span class="badge">${badge}</span>` : ""}
         ${health && !hidden ? `<span class="health">${health}</span>` : ""}
+        ${city && !hidden ? `<span class="city-label ${city.owner === "enemy" ? "enemy" : ""}">${city.name}</span>` : ""}
       </button>
     `;
   }).join("");

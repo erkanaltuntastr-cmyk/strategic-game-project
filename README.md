@@ -36,6 +36,12 @@ Read the full plan here:
 
 [`docs/GAME_PLAN.md`](./docs/GAME_PLAN.md)
 
+## Visual reset
+
+Issue #1 visual direction and the concept image are documented here:
+
+[`docs/VISUAL_RESET_PLAN.md`](./docs/VISUAL_RESET_PLAN.md)
+
 ## Next good steps
 
 1. Make the map visually richer while keeping the rules simple.

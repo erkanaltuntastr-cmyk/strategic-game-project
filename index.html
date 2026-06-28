@@ -12,18 +12,23 @@
 <body>
   <div class="app-shell">
     <header class="topbar">
-      <div>
-        <p class="eyebrow">Version 0.1 prototype</p>
-        <h1>Strategic Game Project</h1>
+      <div class="title-block">
+        <p class="eyebrow">Strategic Game Project</p>
+        <h1>Frontier Command</h1>
       </div>
-      <div class="turn-panel">
-        <div class="metric">
-          <span>Turn</span>
-          <strong id="turn-counter">1</strong>
+      <div class="topbar-strip">
+        <div id="resource-summary" class="resource-summary"></div>
+        <div class="turn-panel">
+          <div class="metric turn-metric">
+            <span>Turn</span>
+            <strong id="turn-counter">1</strong>
+          </div>
+          <div class="control-row">
+            <button id="next-unit-btn" class="secondary-btn" type="button">Next Unit</button>
+            <button id="restart-btn" class="secondary-btn" type="button">Restart</button>
+            <button id="end-turn-btn" type="button">End Turn</button>
+          </div>
         </div>
-        <button id="next-unit-btn" class="secondary-btn" type="button">Next Unit</button>
-        <button id="restart-btn" class="secondary-btn" type="button">Restart</button>
-        <button id="end-turn-btn" type="button">End Turn</button>
       </div>
     </header>
 
@@ -32,28 +37,51 @@
         <div class="panel-header">
           <div>
             <h2>Frontier Map</h2>
-            <p>Found a city, improve land, and defeat the enemy capital.</p>
+            <p>Map first, turn by turn. Settle, secure land, and break the enemy hold.</p>
           </div>
-          <div class="legend" id="legend"></div>
+          <div class="map-meta">
+            <div class="legend" id="legend"></div>
+            <div class="map-status">
+              <span class="status-chip">Map Focus</span>
+              <span id="debug-indicator" class="status-chip muted">Debug Off</span>
+            </div>
+          </div>
         </div>
-        <div id="map" class="map" aria-label="Game map"></div>
+        <div class="map-frame">
+          <div id="map" class="map" aria-label="Game map"></div>
+        </div>
       </section>
 
       <aside class="sidebar">
         <section class="panel info-panel">
-          <h2>Status</h2>
-          <div id="resource-summary" class="resource-summary"></div>
+          <div class="section-title">
+            <h2>Field Brief</h2>
+            <p>Minimal, useful information for the current turn.</p>
+          </div>
           <div id="selection-panel" class="selection-panel"></div>
+        </section>
+
+        <section class="panel actions-panel">
+          <div class="section-title">
+            <h2>Orders</h2>
+            <p>Only actions relevant to the current selection.</p>
+          </div>
           <div id="action-panel" class="action-panel"></div>
         </section>
 
         <section class="panel log-panel">
-          <h2>Turn Log</h2>
+          <div class="section-title">
+            <h2>Turn Log</h2>
+            <p>Recent events in chronological order.</p>
+          </div>
           <div id="log" class="log"></div>
         </section>
 
         <section class="panel help-panel">
-          <h2>How To Play</h2>
+          <div class="section-title">
+            <h2>Field Notes</h2>
+            <p>Player-facing help only. Debug stays off the map.</p>
+          </div>
           <ul>
             <li>Select units by clicking their tile.</li>
             <li>Move to highlighted adjacent tiles.</li>
