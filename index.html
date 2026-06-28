@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Strategic Game Project</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Manrope:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Version 0.1 prototype</p>
+        <h1>Strategic Game Project</h1>
+      </div>
+      <div class="turn-panel">
+        <div class="metric">
+          <span>Turn</span>
+          <strong id="turn-counter">1</strong>
+        </div>
+        <button id="end-turn-btn" type="button">End Turn</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="panel map-panel">
+        <div class="panel-header">
+          <div>
+            <h2>Frontier Map</h2>
+            <p>Found a city, improve land, and defeat the enemy capital.</p>
+          </div>
+          <div class="legend" id="legend"></div>
+        </div>
+        <div id="map" class="map" aria-label="Game map"></div>
+      </section>
+
+      <aside class="sidebar">
+        <section class="panel info-panel">
+          <h2>Status</h2>
+          <div id="resource-summary" class="resource-summary"></div>
+          <div id="selection-panel" class="selection-panel"></div>
+          <div id="action-panel" class="action-panel"></div>
+        </section>
+
+        <section class="panel log-panel">
+          <h2>Turn Log</h2>
+          <div id="log" class="log"></div>
+        </section>
+
+        <section class="panel help-panel">
+          <h2>How To Play</h2>
+          <ul>
+            <li>Select units by clicking their tile.</li>
+            <li>Move to highlighted adjacent tiles.</li>
+            <li>Settlers can found cities and improve worked land.</li>
+            <li>Cities grow with food and build warriors or settlers with production.</li>
+            <li>Attack enemy units or cities by moving onto adjacent hostile tiles.</li>
+          </ul>
+        </section>
+      </aside>
+    </main>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
