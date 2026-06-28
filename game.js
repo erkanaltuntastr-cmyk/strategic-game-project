@@ -1,11 +1,10 @@
 const MAP_SIZE = 12;
-const terrainTypes = ["grassland", "forest", "hill", "water", "mountain"];
 const terrainConfig = {
-  grassland: { food: 2, production: 1, gold: 0, moveCost: 1, symbol: "" },
-  forest: { food: 1, production: 2, gold: 0, moveCost: 1, symbol: "🌲" },
-  hill: { food: 0, production: 2, gold: 1, moveCost: 1, symbol: "⛰" },
-  mountain: { food: 0, production: 1, gold: 0, moveCost: 99, symbol: "▲" },
-  water: { food: 2, production: 0, gold: 1, moveCost: 99, symbol: "≈" }
+  grassland: { food: 2, production: 1, gold: 0, moveCost: 1, symbol: "", defense: 0 },
+  forest: { food: 1, production: 2, gold: 0, moveCost: 1, symbol: "🌲", defense: 1 },
+  hill: { food: 0, production: 2, gold: 1, moveCost: 1, symbol: "⛰", defense: 1 },
+  mountain: { food: 0, production: 1, gold: 0, moveCost: 99, symbol: "▲", defense: 2 },
+  water: { food: 2, production: 0, gold: 1, moveCost: 99, symbol: "≈", defense: 0 }
 };
 const resourceConfig = {
   fish: { terrain: ["water"], food: 1, production: 0, gold: 0, symbol: "🐟" },
@@ -30,6 +29,7 @@ const state = {
   units: [],
   cities: [],
   selectedUnitId: null,
+  inspectedTile: null,
   logs: [],
   winner: null
 };
@@ -42,12 +42,68 @@ const actionPanelEl = document.getElementById("action-panel");
 const resourceSummaryEl = document.getElementById("resource-summary");
 const legendEl = document.getElementById("legend");
 const endTurnBtn = document.getElementById("end-turn-btn");
+const nextUnitBtn = document.getElementById("next-unit-btn");
+const restartBtn = document.getElementById("restart-btn");
 
 function init() {
   renderLegend();
   createGame();
   render();
+  bindEvents();
+}
+
+function bindEvents() {
   endTurnBtn.addEventListener("click", endTurn);
+  nextUnitBtn.addEventListener("click", () => {
+    cyclePlayerUnits(true);
+    render();
+  });
+  restartBtn.addEventListener("click", () => {
+    createGame();
+    render();
+  });
+  document.addEventListener("keydown", handleKeydown);
+}
+
+function handleKeydown(event) {
+  if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
+    return;
+  }
+  const key = event.key.toLowerCase();
+  if (key === "tab") {
+    event.preventDefault();
+    cyclePlayerUnits(true);
+    render();
+    return;
+  }
+  if (key === "enter") {
+    event.preventDefault();
+    endTurn();
+    return;
+  }
+  if (key === "r") {
+    event.preventDefault();
+    createGame();
+    render();
+    return;
+  }
+
+  const directionMap = {
+    arrowup: [0, -1],
+    w: [0, -1],
+    arrowdown: [0, 1],
+    s: [0, 1],
+    arrowleft: [-1, 0],
+    a: [-1, 0],
+    arrowright: [1, 0],
+    d: [1, 0]
+  };
+  const direction = directionMap[key];
+  if (!direction) {
+    return;
+  }
+  event.preventDefault();
+  moveSelectedUnitBy(direction[0], direction[1]);
 }
 
 function createGame() {
@@ -56,6 +112,7 @@ function createGame() {
   state.logs = [];
   state.winner = null;
   state.selectedUnitId = null;
+  state.inspectedTile = { x: 1, y: 1 };
   state.map = generateMap();
   state.units = [];
   state.cities = [];
@@ -67,6 +124,7 @@ function createGame() {
   addCity("enemy", "Red Keep", MAP_SIZE - 2, MAP_SIZE - 2);
 
   revealAroundPlayer();
+  cyclePlayerUnits(false);
   log("A new frontier opens. Found your first city.");
 }
 
@@ -79,7 +137,7 @@ function generateMap() {
       if ((x < 3 && y < 3) || (x > MAP_SIZE - 4 && y > MAP_SIZE - 4)) {
         terrain = Math.random() > 0.2 ? "grassland" : "forest";
       }
-      const tile = {
+      row.push({
         x,
         y,
         terrain,
@@ -87,8 +145,7 @@ function generateMap() {
         improvement: null,
         exploredByPlayer: false,
         visibleToPlayer: false
-      };
-      row.push(tile);
+      });
     }
     map.push(row);
   }
@@ -140,7 +197,8 @@ function addCity(owner, name, x, y) {
     foodStored: 0,
     productionStored: 0,
     currentProduction: "Warrior",
-    health: 8
+    health: 8,
+    maxHealth: 8
   };
   state.cities.push(city);
   return city;
@@ -162,6 +220,32 @@ function getSelectedUnit() {
   return state.units.find((unit) => unit.id === state.selectedUnitId) ?? null;
 }
 
+function getPlayerUnits(onlyReady = false) {
+  return state.units.filter((unit) => (
+    unit.owner === "player" && (!onlyReady || unit.movementRemaining > 0)
+  ));
+}
+
+function selectUnit(unit) {
+  state.selectedUnitId = unit?.id ?? null;
+  if (unit) {
+    state.inspectedTile = { x: unit.x, y: unit.y };
+  }
+}
+
+function cyclePlayerUnits(onlyReady = false) {
+  const units = getPlayerUnits(onlyReady);
+  if (!units.length) {
+    if (!onlyReady) {
+      state.selectedUnitId = null;
+    }
+    return;
+  }
+  const currentIndex = units.findIndex((unit) => unit.id === state.selectedUnitId);
+  const nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % units.length;
+  selectUnit(units[nextIndex]);
+}
+
 function isAdjacent(ax, ay, bx, by) {
   return Math.abs(ax - bx) + Math.abs(ay - by) === 1;
 }
@@ -170,9 +254,10 @@ function handleTileClick(x, y) {
   if (state.winner) {
     return;
   }
+  state.inspectedTile = { x, y };
   const unit = getUnitAt(x, y);
   if (unit?.owner === "player") {
-    state.selectedUnitId = unit.id;
+    selectUnit(unit);
     render();
     return;
   }
@@ -192,6 +277,31 @@ function handleTileClick(x, y) {
   render();
 }
 
+function moveSelectedUnitBy(dx, dy) {
+  const unit = getSelectedUnit();
+  if (!unit || state.winner) {
+    return;
+  }
+  const targetX = unit.x + dx;
+  const targetY = unit.y + dy;
+  if (!getTile(targetX, targetY)) {
+    return;
+  }
+  state.inspectedTile = { x: targetX, y: targetY };
+  attemptMoveOrAttack(unit, targetX, targetY);
+  render();
+}
+
+function canEnterTile(unit, tile) {
+  return tile && terrainConfig[tile.terrain].moveCost <= unit.movementRemaining;
+}
+
+function getDefenseBonus(x, y) {
+  const tile = getTile(x, y);
+  const city = getCityAt(x, y);
+  return (tile ? terrainConfig[tile.terrain].defense : 0) + (city ? 1 : 0);
+}
+
 function attemptMoveOrAttack(unit, targetX, targetY) {
   if (unit.movementRemaining < 1) {
     log(`${unit.type} has no movement left this turn.`);
@@ -199,7 +309,7 @@ function attemptMoveOrAttack(unit, targetX, targetY) {
   }
 
   const tile = getTile(targetX, targetY);
-  if (!tile || terrainConfig[tile.terrain].moveCost > unit.movementRemaining) {
+  if (!canEnterTile(unit, tile)) {
     log("That tile cannot be entered.");
     return;
   }
@@ -227,22 +337,30 @@ function attemptMoveOrAttack(unit, targetX, targetY) {
   unit.x = targetX;
   unit.y = targetY;
   unit.movementRemaining -= terrainConfig[tile.terrain].moveCost;
+  state.inspectedTile = { x: unit.x, y: unit.y };
   revealAroundPlayer();
 }
 
 function resolveCombat(attacker, defender) {
-  defender.health -= Math.max(1, attacker.attack);
-  log(`${attacker.type} attacks an enemy ${defender.type}.`);
+  const attackPower = Math.max(1, attacker.attack);
+  const defenderReduction = getDefenseBonus(defender.x, defender.y);
+  const defenderDamage = Math.max(1, attackPower - defenderReduction);
+  defender.health -= defenderDamage;
+  log(`${attacker.type} attacks an enemy ${defender.type} for ${defenderDamage}.`);
+
   if (defender.health <= 0) {
     state.units = state.units.filter((unit) => unit.id !== defender.id);
     attacker.x = defender.x;
     attacker.y = defender.y;
+    state.inspectedTile = { x: attacker.x, y: attacker.y };
     log("Enemy unit defeated.");
     revealAroundPlayer();
     return;
   }
 
-  attacker.health -= 1;
+  const retaliation = Math.max(1, defender.attack + getDefenseBonus(defender.x, defender.y) - (attacker.type === "Warrior" ? 1 : 0));
+  attacker.health -= retaliation;
+  log(`${defender.type} retaliates for ${retaliation}.`);
   if (attacker.health <= 0) {
     state.units = state.units.filter((unit) => unit.id !== attacker.id);
     state.selectedUnitId = null;
@@ -251,12 +369,14 @@ function resolveCombat(attacker, defender) {
 }
 
 function attackCity(attacker, city) {
-  city.health -= Math.max(1, attacker.attack);
-  log(`${attacker.type} attacks ${city.name}.`);
+  const damage = Math.max(1, attacker.attack - getDefenseBonus(city.x, city.y));
+  city.health -= damage;
+  log(`${attacker.type} attacks ${city.name} for ${damage}.`);
   if (city.health <= 0) {
     state.cities = state.cities.filter((entry) => entry.id !== city.id);
     attacker.x = city.x;
     attacker.y = city.y;
+    state.inspectedTile = { x: attacker.x, y: attacker.y };
     log(`${city.name} has fallen.`);
     if (city.owner === "enemy") {
       state.winner = "player";
@@ -265,10 +385,13 @@ function attackCity(attacker, city) {
     revealAroundPlayer();
     return;
   }
-  attacker.health -= 1;
+  const retaliation = 1 + getDefenseBonus(city.x, city.y);
+  attacker.health -= retaliation;
+  log(`${city.name} resists for ${retaliation}.`);
   if (attacker.health <= 0) {
     state.units = state.units.filter((unit) => unit.id !== attacker.id);
     state.selectedUnitId = null;
+    log(`${attacker.type} fell attacking the city.`);
   }
 }
 
@@ -314,6 +437,7 @@ function foundCity() {
   state.units = state.units.filter((entry) => entry.id !== unit.id);
   state.selectedUnitId = null;
   revealAroundPlayer();
+  cyclePlayerUnits(true);
   log("A new city is founded.");
   render();
 }
@@ -390,6 +514,7 @@ function processCityTurn(city) {
 
   city.foodStored += totals.food;
   city.productionStored += totals.production;
+  city.health = Math.min(city.maxHealth, city.health + 1);
 
   const foodNeeded = city.population * 6;
   if (city.foodStored >= foodNeeded) {
@@ -498,10 +623,12 @@ function endTurn() {
 
   for (const unit of state.units.filter((entry) => entry.owner === "player")) {
     unit.movementRemaining = unit.maxMovement;
+    unit.health = Math.min(unit.maxHealth, unit.health + 1);
   }
 
   state.turn += 1;
   revealAroundPlayer();
+  cyclePlayerUnits(true);
   log(`Turn summary: +${totalFood} food, +${totalProduction} production, +${totalGold} gold.`);
 
   if (!state.cities.some((city) => city.owner === "player")) {
@@ -530,6 +657,16 @@ function renderLegend() {
   )).join("");
 }
 
+function getTileBadge(tile) {
+  if (tile.improvement) {
+    return tile.improvement === "farm" ? "Farm" : "Mine";
+  }
+  if (tile.resource) {
+    return tile.resource[0].toUpperCase() + tile.resource.slice(1);
+  }
+  return "";
+}
+
 function render() {
   turnCounterEl.textContent = String(state.turn);
   renderMap();
@@ -542,13 +679,27 @@ function render() {
 function renderMap() {
   const selectedUnit = getSelectedUnit();
   const validMoves = new Set();
+  const attackableTiles = new Set();
+
   if (selectedUnit) {
     [
       [selectedUnit.x + 1, selectedUnit.y],
       [selectedUnit.x - 1, selectedUnit.y],
       [selectedUnit.x, selectedUnit.y + 1],
       [selectedUnit.x, selectedUnit.y - 1]
-    ].forEach(([x, y]) => validMoves.add(`${x},${y}`));
+    ].forEach(([x, y]) => {
+      const tile = getTile(x, y);
+      const defender = getUnitAt(x, y);
+      const city = getCityAt(x, y);
+      if (!tile || !tile.visibleToPlayer) {
+        return;
+      }
+      if ((defender && defender.owner !== selectedUnit.owner) || (city && city.owner !== selectedUnit.owner)) {
+        attackableTiles.add(`${x},${y}`);
+      } else if (canEnterTile(selectedUnit, tile)) {
+        validMoves.add(`${x},${y}`);
+      }
+    });
   }
 
   mapEl.innerHTML = state.map.flat().map((tile) => {
@@ -557,12 +708,15 @@ function renderMap() {
     const hidden = !tile.exploredByPlayer;
     const revealed = tile.exploredByPlayer && !tile.visibleToPlayer;
     const selected = selectedUnit?.x === tile.x && selectedUnit?.y === tile.y;
-    const canMove = validMoves.has(`${tile.x},${tile.y}`) && tile.visibleToPlayer;
+    const canMove = validMoves.has(`${tile.x},${tile.y}`);
+    const attackable = attackableTiles.has(`${tile.x},${tile.y}`);
     const yields = calculateTileYield(tile);
-    const symbol = hidden ? "" : city ? (city.owner === "player" ? "🏛" : "🏰") : unit ? (unit.owner === "player" ? unitTypes[unit.type].symbol : `⚔`) : tile.resource ? resourceConfig[tile.resource].symbol : terrainConfig[tile.terrain].symbol;
+    const symbol = hidden ? "" : city ? (city.owner === "player" ? "🏛" : "🏰") : unit ? (unit.owner === "player" ? unitTypes[unit.type].symbol : "⚔") : tile.resource ? resourceConfig[tile.resource].symbol : terrainConfig[tile.terrain].symbol;
+    const badge = hidden ? "" : getTileBadge(tile);
+    const health = city ? `${city.health}/${city.maxHealth}` : unit ? `${unit.health}/${unit.maxHealth}` : "";
     return `
       <button
-        class="tile ${tile.terrain} ${hidden ? "hidden" : ""} ${revealed ? "revealed" : ""} ${selected ? "selected" : ""} ${canMove ? "valid-move" : ""}"
+        class="tile ${tile.terrain} ${hidden ? "hidden" : ""} ${revealed ? "revealed" : ""} ${selected ? "selected" : ""} ${canMove ? "valid-move" : ""} ${attackable ? "attackable" : ""}"
         data-x="${tile.x}"
         data-y="${tile.y}"
         type="button"
@@ -570,6 +724,8 @@ function renderMap() {
         <span class="coords">${tile.x},${tile.y}</span>
         <span class="content">${symbol}</span>
         <span class="yield">${hidden ? "" : `F${yields.food} P${yields.production} G${yields.gold}`}</span>
+        ${badge ? `<span class="badge">${badge}</span>` : ""}
+        ${health && !hidden ? `<span class="health">${health}</span>` : ""}
       </button>
     `;
   }).join("");
@@ -587,11 +743,13 @@ function renderSelection() {
   const selectionCards = [];
 
   if (selectedUnit) {
+    const tile = getTile(selectedUnit.x, selectedUnit.y);
     selectionCards.push(`
       <div class="selection-card">
         <strong>${selectedUnit.type}</strong>
         <p>Position ${selectedUnit.x},${selectedUnit.y}</p>
         <p>Health ${selectedUnit.health}/${selectedUnit.maxHealth} | Movement ${selectedUnit.movementRemaining}/${selectedUnit.maxMovement}</p>
+        <p class="subtle">Standing on ${tile.terrain}${tile.improvement ? ` with a ${tile.improvement}` : ""}.</p>
       </div>
     `);
   } else {
@@ -603,13 +761,40 @@ function renderSelection() {
     `);
   }
 
+  if (state.inspectedTile) {
+    const tile = getTile(state.inspectedTile.x, state.inspectedTile.y);
+    const unit = getUnitAt(state.inspectedTile.x, state.inspectedTile.y);
+    const city = getCityAt(state.inspectedTile.x, state.inspectedTile.y);
+    if (tile) {
+      const yields = calculateTileYield(tile);
+      selectionCards.push(`
+        <div class="selection-card">
+          <strong>Tile ${tile.x},${tile.y}</strong>
+          <p>${tile.terrain}${tile.resource ? ` | Resource: ${tile.resource}` : ""}${tile.improvement ? ` | Improvement: ${tile.improvement}` : ""}</p>
+          <p>Yield F${yields.food} P${yields.production} G${yields.gold} | Defense ${terrainConfig[tile.terrain].defense}</p>
+          <p class="subtle">${city ? `${city.name} is here.` : unit ? `${unit.owner === "player" ? "Friendly" : "Enemy"} ${unit.type} is here.` : "Empty frontier tile."}</p>
+        </div>
+      `);
+    }
+  }
+
+  if (!playerCities.length) {
+    selectionCards.push(`
+      <div class="selection-card">
+        <strong>Objective</strong>
+        <p>Found your first city, then build enough force to take Red Keep.</p>
+      </div>
+    `);
+  }
+
   for (const city of playerCities) {
+    const turnsLeft = Math.max(1, Math.ceil((productionCosts[city.currentProduction] - city.productionStored) / Math.max(1, getWorkedTiles(city).reduce((sum, tile) => sum + calculateTileYield(tile).production, 0))));
     selectionCards.push(`
       <div class="selection-card">
         <strong>${city.name}</strong>
-        <p>Population ${city.population} | Health ${city.health}</p>
+        <p>Population ${city.population} | Health ${city.health}/${city.maxHealth}</p>
         <p>Food ${city.foodStored}/${city.population * 6} | Production ${city.productionStored}/${productionCosts[city.currentProduction]}</p>
-        <p>Building ${city.currentProduction}</p>
+        <p>Building ${city.currentProduction} | ETA ${turnsLeft} turn${turnsLeft === 1 ? "" : "s"}</p>
         <div class="action-panel">
           <button class="action-btn" data-city="${city.id}" data-production="Warrior" type="button">Train Warrior</button>
           <button class="action-btn" data-city="${city.id}" data-production="Settler" type="button">Train Settler</button>
@@ -626,13 +811,8 @@ function renderSelection() {
 
 function renderActions() {
   const selectedUnit = getSelectedUnit();
-  if (!selectedUnit) {
-    actionPanelEl.innerHTML = "";
-    return;
-  }
-
-  const buttons = [];
-  if (selectedUnit.type === "Settler") {
+  const buttons = ['<button class="secondary-btn" data-action="next-unit" type="button">Cycle Unit</button>'];
+  if (selectedUnit?.type === "Settler") {
     buttons.push('<button class="action-btn" data-action="found-city" type="button">Found City</button>');
     buttons.push('<button class="action-btn" data-action="improve" type="button">Improve Tile</button>');
   }
@@ -642,6 +822,10 @@ function renderActions() {
     button.addEventListener("click", () => {
       if (button.dataset.action === "found-city") foundCity();
       if (button.dataset.action === "improve") improveTile();
+      if (button.dataset.action === "next-unit") {
+        cyclePlayerUnits(true);
+        render();
+      }
     });
   });
 }
@@ -662,8 +846,10 @@ function renderResources() {
     return sum;
   }, { food: 0, production: 0, gold: 0 });
 
+  const readyUnits = getPlayerUnits(true).length;
   const cards = [
     ["Cities", playerCities.length],
+    ["Ready Units", readyUnits],
     ["Food", totals.food],
     ["Production", totals.production],
     ["Gold", totals.gold]

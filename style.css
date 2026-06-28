@@ -103,19 +103,31 @@ h2 {
   text-transform: uppercase;
 }
 
+.secondary-btn,
 #end-turn-btn,
 .action-btn {
   border: 0;
   border-radius: 16px;
   padding: 12px 18px;
+}
+
+#end-turn-btn,
+.action-btn {
   color: #fff7e7;
   background: linear-gradient(135deg, var(--accent), #6e4316);
   box-shadow: 0 10px 24px rgba(110, 67, 22, 0.24);
 }
 
 #end-turn-btn:hover,
-.action-btn:hover {
+.action-btn:hover,
+.secondary-btn:hover {
   filter: brightness(1.06);
+}
+
+.secondary-btn {
+  color: var(--ink);
+  background: rgba(255, 250, 237, 0.88);
+  border: 1px solid var(--border);
 }
 
 .layout {
@@ -206,6 +218,11 @@ h2 {
   box-shadow: inset 0 0 0 2px rgba(83, 61, 18, 0.25);
 }
 
+.tile.attackable {
+  outline: 3px solid rgba(255, 201, 201, 0.92);
+  box-shadow: inset 0 0 0 2px rgba(115, 31, 31, 0.22);
+}
+
 .tile.selected {
   outline: 3px solid #fff3be;
   box-shadow: 0 10px 24px rgba(53, 35, 12, 0.2);
@@ -223,6 +240,26 @@ h2 {
   left: 8px;
   bottom: 8px;
   opacity: 0.95;
+}
+
+.tile .badge,
+.tile .health {
+  position: absolute;
+  z-index: 1;
+  padding: 3px 6px;
+  border-radius: 999px;
+  font-size: 0.66rem;
+  background: rgba(32, 24, 14, 0.58);
+}
+
+.tile .badge {
+  right: 8px;
+  top: 8px;
+}
+
+.tile .health {
+  right: 8px;
+  bottom: 8px;
 }
 
 .tile .content {
@@ -265,6 +302,11 @@ h2 {
   font-size: 1.05rem;
 }
 
+.resource-card span {
+  font-size: 0.76rem;
+  text-transform: uppercase;
+}
+
 .selection-card {
   width: 100%;
   padding: 14px;
@@ -291,6 +333,11 @@ h2 {
   border-radius: 16px;
   background: rgba(255, 252, 244, 0.88);
   border: 1px solid var(--border);
+}
+
+.selection-card .subtle {
+  color: rgba(46, 38, 29, 0.75);
+  font-size: 0.9rem;
 }
 
 .help-panel ul {
