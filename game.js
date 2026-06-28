@@ -30,6 +30,7 @@ const state = {
   cities: [],
   selectedUnitId: null,
   inspectedTile: null,
+  debugVisible: false,
   logs: [],
   winner: null
 };
@@ -70,6 +71,12 @@ function handleKeydown(event) {
     return;
   }
   const key = event.key.toLowerCase();
+  if (key === "d") {
+    event.preventDefault();
+    state.debugVisible = !state.debugVisible;
+    render();
+    return;
+  }
   if (key === "tab") {
     event.preventDefault();
     cyclePlayerUnits(true);
@@ -90,13 +97,9 @@ function handleKeydown(event) {
 
   const directionMap = {
     arrowup: [0, -1],
-    w: [0, -1],
     arrowdown: [0, 1],
-    s: [0, 1],
     arrowleft: [-1, 0],
-    a: [-1, 0],
-    arrowright: [1, 0],
-    d: [1, 0]
+    arrowright: [1, 0]
   };
   const direction = directionMap[key];
   if (!direction) {
@@ -668,6 +671,7 @@ function getTileBadge(tile) {
 }
 
 function render() {
+  document.body.classList.toggle("debug-visible", state.debugVisible);
   turnCounterEl.textContent = String(state.turn);
   renderMap();
   renderSelection();
@@ -711,7 +715,12 @@ function renderMap() {
     const canMove = validMoves.has(`${tile.x},${tile.y}`);
     const attackable = attackableTiles.has(`${tile.x},${tile.y}`);
     const yields = calculateTileYield(tile);
-    const symbol = hidden ? "" : city ? (city.owner === "player" ? "🏛" : "🏰") : unit ? (unit.owner === "player" ? unitTypes[unit.type].symbol : "⚔") : tile.resource ? resourceConfig[tile.resource].symbol : terrainConfig[tile.terrain].symbol;
+    const pieceMarkup = hidden ? "" : city
+      ? `<span class="piece city ${city.owner === "player" ? "player" : "enemy"}"><span class="content">${city.owner === "player" ? "C" : "!"}</span></span>`
+      : unit
+        ? `<span class="piece unit ${unit.owner === "player" ? "player" : "enemy"} ${unit.type.toLowerCase()}"><span class="content">${unit.owner === "player" ? unitTypes[unit.type].symbol : unitTypes[unit.type].symbol}</span></span>`
+        : "";
+    const terrainSymbol = hidden ? "" : (!pieceMarkup && tile.resource ? resourceConfig[tile.resource].symbol : !pieceMarkup ? terrainConfig[tile.terrain].symbol : "");
     const badge = hidden ? "" : getTileBadge(tile);
     const health = city ? `${city.health}/${city.maxHealth}` : unit ? `${unit.health}/${unit.maxHealth}` : "";
     return `
@@ -722,7 +731,7 @@ function renderMap() {
         type="button"
       >
         <span class="coords">${tile.x},${tile.y}</span>
-        <span class="content">${symbol}</span>
+        ${pieceMarkup || `<span class="content">${terrainSymbol}</span>`}
         <span class="yield">${hidden ? "" : `F${yields.food} P${yields.production} G${yields.gold}`}</span>
         ${badge ? `<span class="badge">${badge}</span>` : ""}
         ${health && !hidden ? `<span class="health">${health}</span>` : ""}
