@@ -1,21 +1,24 @@
-const MAP_SIZE = 12;
+const MAP_WIDTH = StrategicMapGenerator.DEFAULT_WIDTH;
+const MAP_HEIGHT = StrategicMapGenerator.DEFAULT_HEIGHT;
+const START_ZONES = StrategicMapGenerator.createDefaultStartZones(MAP_WIDTH, MAP_HEIGHT);
+
 const terrainConfig = {
-  grassland: { food: 2, production: 1, gold: 0, moveCost: 1, symbol: "", defense: 0 },
-  forest: { food: 1, production: 2, gold: 0, moveCost: 1, symbol: "🌲", defense: 1 },
-  hill: { food: 0, production: 2, gold: 1, moveCost: 1, symbol: "⛰", defense: 1 },
-  mountain: { food: 0, production: 1, gold: 0, moveCost: 99, symbol: "▲", defense: 2 },
-  water: { food: 2, production: 0, gold: 1, moveCost: 99, symbol: "≈", defense: 0 }
+  grassland: { label: "Grassland", read: "fertile open country", food: 2, production: 1, gold: 0, moveCost: 1, symbol: "", defense: 0 },
+  forest: { label: "Forest", read: "timber and cover", food: 1, production: 2, gold: 0, moveCost: 1, symbol: "", defense: 1 },
+  hill: { label: "Hills", read: "rough production land", food: 0, production: 2, gold: 1, moveCost: 1, symbol: "", defense: 1 },
+  mountain: { label: "Mountains", read: "natural barrier", food: 0, production: 1, gold: 0, moveCost: 99, symbol: "", defense: 2 },
+  water: { label: "Water", read: "coast, lake, or sea", food: 2, production: 0, gold: 1, moveCost: 99, symbol: "", defense: 0 }
 };
 const resourceConfig = {
-  fish: { terrain: ["water"], food: 1, production: 0, gold: 0, symbol: "🐟" },
-  game: { terrain: ["grassland", "forest"], food: 1, production: 0, gold: 0, symbol: "🦌" },
-  gold: { terrain: ["hill"], food: 0, production: 0, gold: 2, symbol: "✦" },
-  ore: { terrain: ["hill", "mountain"], food: 0, production: 1, gold: 0, symbol: "⬢" }
+  fish: { label: "Fish", shortLabel: "Fish", terrain: ["water"], food: 1, production: 0, gold: 0, symbol: "Fish" },
+  game: { label: "Game", shortLabel: "Game", terrain: ["grassland", "forest"], food: 1, production: 0, gold: 0, symbol: "Game" },
+  gold: { label: "Gold", shortLabel: "Gold", terrain: ["hill"], food: 0, production: 0, gold: 2, symbol: "Gold" },
+  ore: { label: "Ore", shortLabel: "Ore", terrain: ["hill", "mountain"], food: 0, production: 1, gold: 0, symbol: "Ore" }
 };
 const unitTypes = {
-  Settler: { attack: 0, health: 2, movement: 1, symbol: "S" },
-  Scout: { attack: 1, health: 2, movement: 2, symbol: "C" },
-  Warrior: { attack: 2, health: 3, movement: 1, symbol: "W" }
+  Settler: { attack: 0, health: 2, movement: 1, symbol: "St", role: "Found cities and improve nearby land.", order: "Look for food and production before settling." },
+  Scout: { attack: 1, health: 2, movement: 2, symbol: "Sc", role: "Reveal land quickly and locate resources.", order: "Push into fog, avoid direct fights." },
+  Warrior: { attack: 2, health: 3, movement: 1, symbol: "Wr", role: "Protect settlements and pressure enemies.", order: "Hold chokepoints or escort settlers." }
 };
 const productionCosts = {
   Warrior: 8,
@@ -30,6 +33,7 @@ const state = {
   cities: [],
   selectedUnitId: null,
   inspectedTile: null,
+  worldProfile: null,
   debugVisible: false,
   logs: [],
   winner: null
@@ -116,61 +120,27 @@ function createGame() {
   state.logs = [];
   state.winner = null;
   state.selectedUnitId = null;
-  state.inspectedTile = { x: 1, y: 1 };
-  state.map = generateMap();
+  state.inspectedTile = { ...START_ZONES.player };
+  const world = StrategicMapGenerator.createWorldMap({
+    width: MAP_WIDTH,
+    height: MAP_HEIGHT,
+    startZones: START_ZONES
+  });
+  state.map = world.tiles;
+  state.worldProfile = world.profile;
   state.units = [];
   state.cities = [];
 
-  addUnit("player", "Settler", 1, 1);
-  addUnit("player", "Scout", 2, 1);
-  addUnit("player", "Warrior", 1, 2);
-  addUnit("enemy", "Warrior", MAP_SIZE - 2, MAP_SIZE - 3);
-  addCity("enemy", "Red Keep", MAP_SIZE - 2, MAP_SIZE - 2);
+  addUnit("player", "Settler", START_ZONES.player.x, START_ZONES.player.y);
+  addUnit("player", "Scout", START_ZONES.player.x + 1, START_ZONES.player.y);
+  addUnit("player", "Warrior", START_ZONES.player.x, START_ZONES.player.y + 1);
+  addUnit("enemy", "Warrior", START_ZONES.enemy.x, START_ZONES.enemy.y - 1);
+  addCity("enemy", "Red Keep", START_ZONES.enemy.x, START_ZONES.enemy.y);
 
   revealAroundPlayer();
   cyclePlayerUnits(false);
   log("A new frontier opens. Found your first city.");
-}
-
-function generateMap() {
-  const map = [];
-  for (let y = 0; y < MAP_SIZE; y += 1) {
-    const row = [];
-    for (let x = 0; x < MAP_SIZE; x += 1) {
-      let terrain = randomTerrain();
-      if ((x < 3 && y < 3) || (x > MAP_SIZE - 4 && y > MAP_SIZE - 4)) {
-        terrain = Math.random() > 0.2 ? "grassland" : "forest";
-      }
-      row.push({
-        x,
-        y,
-        terrain,
-        resource: pickResource(terrain),
-        improvement: null,
-        exploredByPlayer: false,
-        visibleToPlayer: false
-      });
-    }
-    map.push(row);
-  }
-  return map;
-}
-
-function randomTerrain() {
-  const roll = Math.random();
-  if (roll < 0.44) return "grassland";
-  if (roll < 0.66) return "forest";
-  if (roll < 0.84) return "hill";
-  if (roll < 0.94) return "water";
-  return "mountain";
-}
-
-function pickResource(terrain) {
-  const options = Object.entries(resourceConfig)
-    .filter(([, config]) => config.terrain.includes(terrain))
-    .map(([key]) => key);
-  if (!options.length || Math.random() < 0.72) return null;
-  return options[Math.floor(Math.random() * options.length)];
+  log(`${state.worldProfile.name}: ${state.worldProfile.summary}`);
 }
 
 function addUnit(owner, type, x, y) {
@@ -489,6 +459,10 @@ function calculateTileYield(tile) {
   return yieldData;
 }
 
+function formatYield(yieldData) {
+  return `Food ${yieldData.food} / Production ${yieldData.production} / Gold ${yieldData.gold}`;
+}
+
 function getWorkedTiles(city) {
   const tiles = [];
   for (let y = city.y - 1; y <= city.y + 1; y += 1) {
@@ -649,15 +623,9 @@ function log(message) {
 }
 
 function renderLegend() {
-  const items = [
-    ["grassland", "Grassland"],
-    ["forest", "Forest"],
-    ["hill", "Hill"],
-    ["water", "Water"],
-    ["mountain", "Mountain"]
-  ];
-  legendEl.innerHTML = items.map(([cls, label]) => (
-    `<span class="legend-item"><span class="swatch ${cls}" style="background: var(--${cls === "water" ? "water" : cls});"></span>${label}</span>`
+  const items = ["grassland", "forest", "hill", "water", "mountain"];
+  legendEl.innerHTML = items.map((cls) => (
+    `<span class="legend-item"><span class="swatch ${cls}" style="background: var(--${cls === "water" ? "water" : cls});"></span>${terrainConfig[cls].label}</span>`
   )).join("");
 }
 
@@ -666,7 +634,7 @@ function getTileBadge(tile) {
     return tile.improvement === "farm" ? "Farm" : "Mine";
   }
   if (tile.resource) {
-    return tile.resource[0].toUpperCase() + tile.resource.slice(1);
+    return resourceConfig[tile.resource].shortLabel;
   }
   return "";
 }
@@ -683,6 +651,7 @@ function render() {
 }
 
 function renderMap() {
+  mapEl.style.setProperty("--map-columns", String(MAP_WIDTH));
   const selectedUnit = getSelectedUnit();
   const validMoves = new Set();
   const attackableTiles = new Set();
@@ -722,12 +691,13 @@ function renderMap() {
       : unit
         ? `<span class="piece unit ${unit.owner === "player" ? "player" : "enemy"} ${unit.type.toLowerCase()}"><span class="content">${unit.owner === "player" ? unitTypes[unit.type].symbol : unitTypes[unit.type].symbol}</span></span>`
         : "";
-    const terrainSymbol = hidden ? "" : (!pieceMarkup && tile.resource ? resourceConfig[tile.resource].symbol : !pieceMarkup ? terrainConfig[tile.terrain].symbol : "");
+    const terrainSymbol = hidden || pieceMarkup ? "" : terrainConfig[tile.terrain].symbol;
     const badge = hidden ? "" : getTileBadge(tile);
     const health = city ? `${city.health}/${city.maxHealth}` : unit ? `${unit.health}/${unit.maxHealth}` : "";
+    const showHealth = !hidden && health && (state.debugVisible || selected || attackable || city);
     return `
       <button
-        class="tile ${tile.terrain} ${hidden ? "hidden" : ""} ${revealed ? "revealed" : ""} ${selected ? "selected" : ""} ${canMove ? "valid-move" : ""} ${attackable ? "attackable" : ""}"
+        class="tile ${tile.terrain} ${tile.resource ? `has-resource resource-${tile.resource}` : ""} ${hidden ? "hidden" : ""} ${revealed ? "revealed" : ""} ${selected ? "selected" : ""} ${canMove ? "valid-move" : ""} ${attackable ? "attackable" : ""}"
         data-x="${tile.x}"
         data-y="${tile.y}"
         type="button"
@@ -736,7 +706,7 @@ function renderMap() {
         ${pieceMarkup || `<span class="content">${terrainSymbol}</span>`}
         <span class="yield">${hidden ? "" : `F${yields.food} P${yields.production} G${yields.gold}`}</span>
         ${badge ? `<span class="badge">${badge}</span>` : ""}
-        ${health && !hidden ? `<span class="health">${health}</span>` : ""}
+        ${showHealth ? `<span class="health">${health}</span>` : ""}
         ${city && !hidden ? `<span class="city-label ${city.owner === "enemy" ? "enemy" : ""}">${city.name}</span>` : ""}
       </button>
     `;
@@ -756,12 +726,15 @@ function renderSelection() {
 
   if (selectedUnit) {
     const tile = getTile(selectedUnit.x, selectedUnit.y);
+    const unitType = unitTypes[selectedUnit.type];
     selectionCards.push(`
-      <div class="selection-card">
+      <div class="selection-card primary-card">
+        <span class="card-kicker">Active Unit</span>
         <strong>${selectedUnit.type}</strong>
-        <p>Position ${selectedUnit.x},${selectedUnit.y}</p>
+        <p>${unitType.role}</p>
         <p>Health ${selectedUnit.health}/${selectedUnit.maxHealth} | Movement ${selectedUnit.movementRemaining}/${selectedUnit.maxMovement}</p>
-        <p class="subtle">Standing on ${tile.terrain}${tile.improvement ? ` with a ${tile.improvement}` : ""}.</p>
+        <p class="subtle">${unitType.order}</p>
+        <p class="subtle">Standing on ${terrainConfig[tile.terrain].label}${tile.improvement ? ` with a ${tile.improvement}` : ""}.</p>
       </div>
     `);
   } else {
@@ -779,11 +752,14 @@ function renderSelection() {
     const city = getCityAt(state.inspectedTile.x, state.inspectedTile.y);
     if (tile) {
       const yields = calculateTileYield(tile);
+      const terrain = terrainConfig[tile.terrain];
+      const resourceText = tile.resource ? `${resourceConfig[tile.resource].label} resource` : "No special resource";
       selectionCards.push(`
         <div class="selection-card">
-          <strong>Tile ${tile.x},${tile.y}</strong>
-          <p>${tile.terrain}${tile.resource ? ` | Resource: ${tile.resource}` : ""}${tile.improvement ? ` | Improvement: ${tile.improvement}` : ""}</p>
-          <p>Yield F${yields.food} P${yields.production} G${yields.gold} | Defense ${terrainConfig[tile.terrain].defense}</p>
+          <span class="card-kicker">Inspected Land${state.debugVisible ? ` ${tile.x},${tile.y}` : ""}</span>
+          <strong>${terrain.label}</strong>
+          <p>${terrain.read}. ${resourceText}${tile.improvement ? `, improved with ${tile.improvement}` : ""}.</p>
+          <p>${formatYield(yields)} | Defense ${terrain.defense}</p>
           <p class="subtle">${city ? `${city.name} is here.` : unit ? `${unit.owner === "player" ? "Friendly" : "Enemy"} ${unit.type} is here.` : "Empty frontier tile."}</p>
         </div>
       `);
@@ -792,20 +768,32 @@ function renderSelection() {
 
   if (!playerCities.length) {
     selectionCards.push(`
-      <div class="selection-card">
+      <div class="selection-card objective-card">
+        <span class="card-kicker">${state.worldProfile?.name ?? "New Frontier"}</span>
         <strong>Objective</strong>
         <p>Found your first city, then build enough force to take Red Keep.</p>
+        <p class="subtle">${state.worldProfile?.resourceText ?? ""}</p>
       </div>
     `);
   }
 
   for (const city of playerCities) {
-    const turnsLeft = Math.max(1, Math.ceil((productionCosts[city.currentProduction] - city.productionStored) / Math.max(1, getWorkedTiles(city).reduce((sum, tile) => sum + calculateTileYield(tile).production, 0))));
+    const workedTiles = getWorkedTiles(city);
+    const cityYield = workedTiles.reduce((sum, tile) => {
+      const yields = calculateTileYield(tile);
+      sum.food += yields.food;
+      sum.production += yields.production;
+      sum.gold += yields.gold;
+      return sum;
+    }, { food: 0, production: 0, gold: 0 });
+    const turnsLeft = Math.max(1, Math.ceil((productionCosts[city.currentProduction] - city.productionStored) / Math.max(1, cityYield.production)));
     selectionCards.push(`
-      <div class="selection-card">
+      <div class="selection-card city-card">
+        <span class="card-kicker">Settlement</span>
         <strong>${city.name}</strong>
         <p>Population ${city.population} | Health ${city.health}/${city.maxHealth}</p>
-        <p>Food ${city.foodStored}/${city.population * 6} | Production ${city.productionStored}/${productionCosts[city.currentProduction]}</p>
+        <p>${formatYield(cityYield)} per turn</p>
+        <p>Food store ${city.foodStored}/${city.population * 6} | Production ${city.productionStored}/${productionCosts[city.currentProduction]}</p>
         <p>Building ${city.currentProduction} | ETA ${turnsLeft} turn${turnsLeft === 1 ? "" : "s"}</p>
         <div class="action-panel">
           <button class="action-btn" data-city="${city.id}" data-production="Warrior" type="button">Train Warrior</button>

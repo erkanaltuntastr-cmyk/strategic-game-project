@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Strategic Map Generator</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --panel: #161b22;
+      --border: #30363d;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --accent: #58a6ff;
+      --accent-2: #3fb950;
+      --danger: #f85149;
+      --mono: "Courier New", monospace;
+      --ui: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      height: 100vh;
+      overflow: hidden;
+      color: var(--text);
+      background: var(--bg);
+      font-family: var(--ui);
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: 220px minmax(0, 1fr);
+      grid-template-rows: minmax(0, 1fr) 34px;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    aside {
+      grid-row: 1 / 3;
+      padding: 14px 12px;
+      overflow-y: auto;
+      background: var(--panel);
+      border-right: 1px solid var(--border);
+    }
+
+    main {
+      position: relative;
+      overflow: hidden;
+      background: #080c10;
+      cursor: grab;
+    }
+
+    main.dragging {
+      cursor: grabbing;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .bottom-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 0 12px;
+      color: var(--muted);
+      background: rgba(13, 17, 23, 0.96);
+      border-top: 1px solid var(--border);
+      font: 12px var(--mono);
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      color: var(--accent);
+      font: 700 13px var(--mono);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .section {
+      margin: 0 0 18px;
+    }
+
+    .section-title {
+      margin-bottom: 8px;
+      color: var(--muted);
+      font: 700 10px var(--mono);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .control {
+      display: grid;
+      gap: 4px;
+      margin-bottom: 9px;
+    }
+
+    label {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    label span {
+      color: var(--accent);
+      font-family: var(--mono);
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 6px 8px;
+      color: var(--text);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      outline: none;
+      font: 12px var(--mono);
+    }
+
+    input[type="text"]:focus {
+      border-color: var(--accent);
+    }
+
+    .button-stack {
+      display: grid;
+      gap: 7px;
+    }
+
+    button {
+      width: 100%;
+      padding: 8px 10px;
+      color: #0d1117;
+      background: var(--accent);
+      border: 0;
+      border-radius: 4px;
+      cursor: pointer;
+      font: 700 12px var(--mono);
+    }
+
+    button.secondary {
+      color: var(--text);
+      background: var(--border);
+    }
+
+    button.success {
+      color: #0d1117;
+      background: var(--accent-2);
+    }
+
+    button:hover {
+      filter: brightness(1.08);
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 5px;
+    }
+
+    .stat {
+      padding: 6px 7px;
+      text-align: center;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+    }
+
+    .stat strong {
+      display: block;
+      color: var(--accent);
+      font: 700 14px var(--mono);
+    }
+
+    .stat span {
+      display: block;
+      color: var(--muted);
+      font-size: 9px;
+      text-transform: uppercase;
+    }
+
+    .legend {
+      display: grid;
+      gap: 5px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .swatch {
+      width: 14px;
+      height: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 2px;
+    }
+
+    .texture-status {
+      color: var(--muted);
+      font: 11px var(--mono);
+      line-height: 1.4;
+    }
+
+    .quality-card {
+      display: grid;
+      gap: 7px;
+      padding: 9px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+    }
+
+    .quality-score {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 8px;
+      color: var(--accent);
+      font: 700 20px var(--mono);
+    }
+
+    .quality-score span {
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+    }
+
+    .quality-line {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      color: var(--muted);
+      font: 11px var(--mono);
+    }
+
+    .quality-line strong {
+      color: var(--text);
+      font-weight: 700;
+    }
+
+    .warnings {
+      margin: 0;
+      padding-left: 16px;
+      color: #f2cc60;
+      font-size: 11px;
+      line-height: 1.35;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside>
+      <h1>Strategic Map Generator</h1>
+
+      <div class="section">
+        <div class="section-title">Map Size</div>
+        <div class="control">
+          <label for="mapWidth">Map Width <span id="mapWidthValue">48</span></label>
+          <input id="mapWidth" type="range" min="20" max="80" value="48">
+        </div>
+        <div class="control">
+          <label for="mapHeight">Map Height <span id="mapHeightValue">32</span></label>
+          <input id="mapHeight" type="range" min="14" max="60" value="32">
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Terrain</div>
+        <div class="control">
+          <label for="seaLevel">Sea Level <span id="seaLevelValue">42%</span></label>
+          <input id="seaLevel" type="range" min="20" max="70" value="42">
+        </div>
+        <div class="control">
+          <label for="mountainLevel">Mountain <span id="mountainLevelValue">18%</span></label>
+          <input id="mountainLevel" type="range" min="5" max="40" value="18">
+        </div>
+        <div class="control">
+          <label for="forestLevel">Forest <span id="forestLevelValue">22%</span></label>
+          <input id="forestLevel" type="range" min="5" max="45" value="22">
+        </div>
+        <div class="control">
+          <label for="noiseScale">Noise Scale <span id="noiseScaleValue">3.2</span></label>
+          <input id="noiseScale" type="range" min="10" max="60" value="32">
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Seed</div>
+        <input id="seedInput" type="text" value="ISTANBUL-1453">
+      </div>
+
+      <div class="section button-stack">
+        <button id="generateButton" type="button">Generate</button>
+        <button id="randomSeedButton" class="secondary" type="button">Random Seed</button>
+        <button id="exportButton" class="success" type="button">Export JSON</button>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Quality</div>
+        <div id="qualityPanel" class="quality-card"></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Stats</div>
+        <div id="statsGrid" class="stats-grid"></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Legend</div>
+        <div id="legend" class="legend"></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Textures</div>
+        <div id="textureStatus" class="texture-status">Loading textures...</div>
+      </div>
+    </aside>
+
+    <main id="canvasWrap">
+      <canvas id="mapCanvas"></canvas>
+    </main>
+
+    <div class="bottom-bar">
+      <div id="coordsDisplay">Terrain: — | Yield: — | col:— row:—</div>
+      <div id="seedDisplay">SEED: ISTANBUL-1453</div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { generateBestMap } from "./generator.js";
+    import HexRenderer from "./renderer.js";
+    import { TERRAIN } from "./terrain.js";
+
+    const canvas = document.getElementById("mapCanvas");
+    const canvasWrap = document.getElementById("canvasWrap");
+    const renderer = new HexRenderer(canvas, {
+      hexSize: 14,
+      showGrid: true,
+      showCoords: false
+    });
+
+    const controls = {
+      mapWidth: document.getElementById("mapWidth"),
+      mapHeight: document.getElementById("mapHeight"),
+      seaLevel: document.getElementById("seaLevel"),
+      mountainLevel: document.getElementById("mountainLevel"),
+      forestLevel: document.getElementById("forestLevel"),
+      noiseScale: document.getElementById("noiseScale"),
+      seedInput: document.getElementById("seedInput")
+    };
+
+    const labels = {
+      mapWidth: document.getElementById("mapWidthValue"),
+      mapHeight: document.getElementById("mapHeightValue"),
+      seaLevel: document.getElementById("seaLevelValue"),
+      mountainLevel: document.getElementById("mountainLevelValue"),
+      forestLevel: document.getElementById("forestLevelValue"),
+      noiseScale: document.getElementById("noiseScaleValue")
+    };
+
+    const coordsDisplay = document.getElementById("coordsDisplay");
+    const seedDisplay = document.getElementById("seedDisplay");
+    const statsGrid = document.getElementById("statsGrid");
+    const qualityPanel = document.getElementById("qualityPanel");
+    const legend = document.getElementById("legend");
+    const textureStatus = document.getElementById("textureStatus");
+    const terrainList = Object.values(TERRAIN).sort((a, b) => a.id - b.id);
+
+    let mapData = null;
+    let panX = 20;
+    let panY = 20;
+    let isDragging = false;
+    let dragStartX = 0;
+    let dragStartY = 0;
+
+    const textureMap = {
+      [TERRAIN.OCEAN.id]: "../../assets/textures/ocean.png",
+      [TERRAIN.DEEP_OCEAN.id]: "../../assets/textures/ocean.png",
+      [TERRAIN.COAST.id]: "../../assets/textures/coast.png",
+      [TERRAIN.GRASSLAND.id]: "../../assets/textures/grassland.png",
+      [TERRAIN.PLAINS.id]: "../../assets/textures/plains.png",
+      [TERRAIN.HILLS.id]: "../../assets/textures/hills.png",
+      [TERRAIN.FOREST.id]: "../../assets/textures/forest.png",
+      [TERRAIN.MOUNTAIN.id]: "../../assets/textures/mountain.png",
+      [TERRAIN.DESERT.id]: "../../assets/textures/desert.png",
+      [TERRAIN.TUNDRA.id]: "../../assets/textures/tundra.png"
+    };
+
+    const resourceTextureMap = {
+      GOLD_DEPOSIT: "../../assets/resources/gold.png",
+      IRON_ORE: "../../assets/resources/ore.png",
+      FISH: "../../assets/resources/fish.png",
+      GAME_ANIMALS: "../../assets/resources/game.png"
+    };
+
+    const markerTextureMap = {
+      playerStart: "../../assets/markers/player-start.png"
+    };
+
+    init();
+
+    async function init() {
+      bindControls();
+      renderLegend();
+      resizeCanvas();
+      try {
+        await Promise.all([
+          renderer.loadTextures(textureMap),
+          renderer.loadResourceTextures(resourceTextureMap),
+          renderer.loadMarkerTextures(markerTextureMap)
+        ]);
+        textureStatus.textContent = "Textures, resources, and markers loaded.";
+      } catch (error) {
+        textureStatus.textContent = "Some art failed to load; using graceful fallbacks.";
+      }
+      generateAndRender();
+    }
+
+    function bindControls() {
+      const controlBindings = [
+        ["mapWidth", () => controls.mapWidth.value],
+        ["mapHeight", () => controls.mapHeight.value],
+        ["seaLevel", () => `${controls.seaLevel.value}%`],
+        ["mountainLevel", () => `${controls.mountainLevel.value}%`],
+        ["forestLevel", () => `${controls.forestLevel.value}%`],
+        ["noiseScale", () => (Number(controls.noiseScale.value) / 10).toFixed(1)]
+      ];
+
+      for (const [key, format] of controlBindings) {
+        controls[key].addEventListener("input", () => {
+          labels[key].textContent = format();
+        });
+      }
+
+      document.getElementById("generateButton").addEventListener("click", generateAndRender);
+      document.getElementById("randomSeedButton").addEventListener("click", () => {
+        controls.seedInput.value = createRandomSeed();
+        generateAndRender();
+      });
+      document.getElementById("exportButton").addEventListener("click", exportJson);
+
+      canvasWrap.addEventListener("mousedown", (event) => {
+        isDragging = true;
+        dragStartX = event.clientX - panX;
+        dragStartY = event.clientY - panY;
+        canvasWrap.classList.add("dragging");
+      });
+
+      window.addEventListener("mouseup", () => {
+        isDragging = false;
+        canvasWrap.classList.remove("dragging");
+      });
+
+      window.addEventListener("mousemove", (event) => {
+        if (isDragging) {
+          panX = event.clientX - dragStartX;
+          panY = event.clientY - dragStartY;
+          render();
+        }
+      });
+
+      canvasWrap.addEventListener("mousemove", updateHover);
+      canvasWrap.addEventListener("mouseleave", () => {
+        coordsDisplay.textContent = "Terrain: — | Yield: — | col:— row:—";
+      });
+
+      canvasWrap.addEventListener("wheel", (event) => {
+        event.preventDefault();
+        const delta = event.deltaY > 0 ? -1 : 1;
+        renderer.hexSize = Math.max(6, Math.min(32, renderer.hexSize + delta));
+        render();
+      }, { passive: false });
+
+      window.addEventListener("resize", () => {
+        resizeCanvas();
+        render();
+      });
+    }
+
+    function generateAndRender() {
+      mapData = generateBestMap(getConfig(), 8);
+      panX = 20;
+      panY = 20;
+      seedDisplay.textContent = `SEED: ${mapData.seed} | BEST ${mapData.generationAttempt}/${mapData.generationAttempts}`;
+      renderQuality();
+      renderStats();
+      render();
+    }
+
+    function getConfig() {
+      return {
+        cols: Number(controls.mapWidth.value),
+        rows: Number(controls.mapHeight.value),
+        seed: controls.seedInput.value.trim() || "ISTANBUL-1453",
+        seaLevel: Number(controls.seaLevel.value) / 100,
+        mountainLevel: Number(controls.mountainLevel.value) / 100,
+        forestLevel: Number(controls.forestLevel.value) / 100,
+        noiseScale: Number(controls.noiseScale.value) / 10
+      };
+    }
+
+    function render() {
+      if (!mapData) return;
+      renderer.render(mapData, panX, panY);
+      renderer.renderOverlays(mapData, panX, panY, {
+        showRivers: true,
+        showResources: true,
+        showStarts: true,
+        start: mapData.quality?.start,
+        showFog: false
+      });
+    }
+
+    function resizeCanvas() {
+      const rect = canvasWrap.getBoundingClientRect();
+      canvas.width = Math.max(1, Math.floor(rect.width));
+      canvas.height = Math.max(1, Math.floor(rect.height));
+    }
+
+    function updateHover(event) {
+      if (!mapData) return;
+      const rect = canvas.getBoundingClientRect();
+      const hit = renderer.hexAtPixel(event.clientX - rect.left, event.clientY - rect.top, panX, panY);
+      if (!hit) {
+        coordsDisplay.textContent = "Terrain: — | Yield: — | col:— row:—";
+        return;
+      }
+
+      const tile = mapData.tiles[hit.row * mapData.cols + hit.col];
+      const yields = tile.terrain.yields;
+      const resource = tile.resource ? ` | ${tile.resource.name}` : "";
+      const start = mapData.quality?.start;
+      const startLabel = start?.col === hit.col && start?.row === hit.row ? " | START" : "";
+      coordsDisplay.textContent = `${tile.terrain.name}${resource}${startLabel} | Yield F${yields.food} P${yields.production} G${yields.gold} | col:${hit.col} row:${hit.row}`;
+    }
+
+    function renderQuality() {
+      const quality = mapData.quality;
+      if (!quality) {
+        qualityPanel.textContent = "No quality data.";
+        return;
+      }
+
+      const start = quality.start;
+      const warnings = quality.warnings.length
+        ? `<ul class="warnings">${quality.warnings.map((warning) => `<li>${warning}</li>`).join("")}</ul>`
+        : `<div class="quality-line"><strong>No major warnings</strong></div>`;
+
+      qualityPanel.innerHTML = `
+        <div class="quality-score">
+          ${quality.score}<span>${quality.rating}</span>
+        </div>
+        <div class="quality-line"><span>Candidate</span><strong>${mapData.generationAttempt}/${mapData.generationAttempts}</strong></div>
+        <div class="quality-line"><span>Largest land</span><strong>${quality.metrics.largestLandmassPercent}%</strong></div>
+        <div class="quality-line"><span>Resources</span><strong>${quality.metrics.resourcePercent}%</strong></div>
+        <div class="quality-line"><span>Rivers</span><strong>${quality.metrics.riverPercent}%</strong></div>
+        <div class="quality-line"><span>Start</span><strong>${start ? `${start.col},${start.row} (${start.score})` : "none"}</strong></div>
+        ${warnings}
+      `;
+    }
+
+    function renderStats() {
+      const counts = new Map(terrainList.map((terrain) => [terrain.id, 0]));
+      for (const tile of mapData.tiles) {
+        counts.set(tile.terrain.id, (counts.get(tile.terrain.id) ?? 0) + 1);
+      }
+
+      const total = mapData.tiles.length || 1;
+      statsGrid.innerHTML = terrainList.map((terrain) => {
+        const percent = Math.round(((counts.get(terrain.id) ?? 0) / total) * 100);
+        return `
+          <div class="stat">
+            <strong>${percent}%</strong>
+            <span>${terrain.name}</span>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function renderLegend() {
+      legend.innerHTML = terrainList.map((terrain) => `
+        <div class="legend-item">
+          <span class="swatch" style="background:${terrain.color}"></span>
+          ${terrain.name}
+        </div>
+      `).join("");
+    }
+
+    function exportJson() {
+      if (!mapData) return;
+      const payload = {
+        ...mapData,
+        tiles: mapData.tiles.map((tile) => ({
+          col: tile.col,
+          row: tile.row,
+          terrain: tile.terrain.id,
+          terrainName: tile.terrain.name,
+          resource: tile.resource?.id ?? null,
+          river: tile.river,
+          height: tile.height
+        })),
+        quality: mapData.quality,
+        baseSeed: mapData.baseSeed,
+        variantSeed: mapData.variantSeed,
+        generationAttempt: mapData.generationAttempt,
+        generationAttempts: mapData.generationAttempts
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `map_${mapData.seed.replace(/[^a-z0-9]+/gi, "_")}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function createRandomSeed() {
+      const words = ["ISTANBUL", "ANATOLIA", "BOSPHORUS", "THAMES", "AEGEAN", "DANUBE", "ATLAS", "NORDIC", "OXFORD", "NILE"];
+      const word = words[Math.floor(Math.random() * words.length)];
+      const number = Math.floor(Math.random() * 9000 + 1000);
+      return `${word}-${number}`;
+    }
+  </script>
+</body>
+</html>

@@ -32,7 +32,25 @@
       </div>
     </header>
 
-    <main class="layout">
+    <main class="layout strategy-screen">
+      <aside class="left-rail">
+        <section class="panel info-panel">
+          <div class="section-title">
+            <h2>Field Brief</h2>
+            <p>Current unit, tile, and city facts.</p>
+          </div>
+          <div id="selection-panel" class="selection-panel"></div>
+        </section>
+
+        <section class="panel actions-panel">
+          <div class="section-title">
+            <h2>Orders</h2>
+            <p>Active commands for this turn.</p>
+          </div>
+          <div id="action-panel" class="action-panel"></div>
+        </section>
+      </aside>
+
       <section class="panel map-panel">
         <div class="panel-header">
           <div>
@@ -52,23 +70,7 @@
         </div>
       </section>
 
-      <aside class="sidebar">
-        <section class="panel info-panel">
-          <div class="section-title">
-            <h2>Field Brief</h2>
-            <p>Minimal, useful information for the current turn.</p>
-          </div>
-          <div id="selection-panel" class="selection-panel"></div>
-        </section>
-
-        <section class="panel actions-panel">
-          <div class="section-title">
-            <h2>Orders</h2>
-            <p>Only actions relevant to the current selection.</p>
-          </div>
-          <div id="action-panel" class="action-panel"></div>
-        </section>
-
+      <aside class="right-rail">
         <section class="panel log-panel">
           <div class="section-title">
             <h2>Turn Log</h2>
@@ -97,6 +99,7 @@
     </main>
   </div>
 
+  <script src="mapGenerator.js"></script>
   <script src="game.js"></script>
 </body>
 </html>
