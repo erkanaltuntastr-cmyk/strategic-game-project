@@ -29,6 +29,7 @@ No install, no backend, no external dependencies.
 - `style.css` — map and panel styling
 - `game.js` — game state, rendering, turn logic, and AI
 - `docs/GAME_PLAN.md` — source design plan and development direction
+- `tools/map-generator.html` — standalone procedural hex map generation lab
 
 ## Design plan
 
@@ -41,6 +42,12 @@ Read the full plan here:
 Issue #1 visual direction and the concept image are documented here:
 
 [`docs/VISUAL_RESET_PLAN.md`](./docs/VISUAL_RESET_PLAN.md)
+
+## Tools
+
+The map generator is a separate design/development tool, not the main game screen:
+
+[`tools/map-generator.html`](./tools/map-generator.html)
 
 ## Next good steps
 
