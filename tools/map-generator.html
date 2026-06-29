@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hex Map Generator</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --border: #30363d;
+    --accent: #58a6ff;
+    --accent2: #3fb950;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --danger: #f85149;
+    --font-mono: 'Courier New', monospace;
+    --font-ui: system-ui, -apple-system, sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-ui);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  header {
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-shrink: 0;
+  }
+
+  header h1 {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-family: var(--font-mono);
+  }
+
+  .header-tag {
+    font-size: 10px;
+    background: #1f2937;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 2px 7px;
+    border-radius: 3px;
+    font-family: var(--font-mono);
+  }
+
+  .main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* SIDEBAR */
+  .sidebar {
+    width: 220px;
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    padding: 14px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+
+  .section-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+    font-family: var(--font-mono);
+  }
+
+  .control-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 8px;
+  }
+
+  .control-row label {
+    font-size: 11px;
+    color: var(--muted);
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .control-row label span {
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: 11px;
+  }
+
+  input[type="range"] {
+    width: 100%;
+    accent-color: var(--accent);
+    height: 3px;
+    cursor: pointer;
+  }
+
+  input[type="text"], input[type="number"] {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 5px 8px;
+    font-size: 12px;
+    font-family: var(--font-mono);
+    border-radius: 4px;
+    outline: none;
+  }
+
+  input[type="text"]:focus, input[type="number"]:focus {
+    border-color: var(--accent);
+  }
+
+  .btn {
+    width: 100%;
+    padding: 7px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: var(--font-mono);
+    transition: opacity 0.15s;
+    letter-spacing: 0.03em;
+  }
+
+  .btn:hover { opacity: 0.85; }
+  .btn:active { opacity: 0.7; transform: translateY(1px); }
+
+  .btn-primary { background: var(--accent); color: #0d1117; }
+  .btn-secondary { background: var(--border); color: var(--text); }
+  .btn-success { background: var(--accent2); color: #0d1117; }
+
+  .btn-group { display: flex; flex-direction: column; gap: 6px; }
+
+  /* LEGEND */
+  .legend {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .legend-swatch {
+    width: 14px;
+    height: 14px;
+    border-radius: 2px;
+    flex-shrink: 0;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+
+  /* STATS */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 5px;
+  }
+
+  .stat-box {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 5px 7px;
+    text-align: center;
+  }
+
+  .stat-val {
+    font-size: 14px;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    color: var(--accent);
+  }
+
+  .stat-lbl {
+    font-size: 9px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  /* CANVAS AREA */
+  .canvas-wrap {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    background: #080c10;
+    cursor: grab;
+  }
+
+  .canvas-wrap:active { cursor: grabbing; }
+
+  canvas {
+    position: absolute;
+    top: 0; left: 0;
+    image-rendering: pixelated;
+  }
+
+  .coords-badge {
+    position: absolute;
+    bottom: 10px;
+    right: 12px;
+    background: rgba(13,17,23,0.85);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: var(--muted);
+    pointer-events: none;
+  }
+
+  .seed-badge {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    background: rgba(13,17,23,0.85);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: var(--muted);
+    pointer-events: none;
+  }
+
+  .tooltip {
+    position: absolute;
+    background: rgba(13,17,23,0.95);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 6px 10px;
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: var(--text);
+    pointer-events: none;
+    display: none;
+    z-index: 10;
+    white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>// HEX MAP GENERATOR</h1>
+  <span class="header-tag">MODULE v0.1</span>
+  <span class="header-tag">CIV ENGINE</span>
+</header>
+
+<div class="main">
+  <div class="sidebar">
+
+    <div>
+      <div class="section-label">Map Size</div>
+      <div class="control-row">
+        <label>Width <span id="wVal">48</span></label>
+        <input type="range" id="mapW" min="20" max="80" value="48">
+      </div>
+      <div class="control-row">
+        <label>Height <span id="hVal">32</span></label>
+        <input type="range" id="mapH" min="14" max="60" value="32">
+      </div>
+    </div>
+
+    <div>
+      <div class="section-label">Terrain</div>
+      <div class="control-row">
+        <label>Sea Level <span id="seaVal">42</span>%</label>
+        <input type="range" id="seaLevel" min="20" max="70" value="42">
+      </div>
+      <div class="control-row">
+        <label>Mountain <span id="mtVal">18</span>%</label>
+        <input type="range" id="mtLevel" min="5" max="40" value="18">
+      </div>
+      <div class="control-row">
+        <label>Forest <span id="frVal">22</span>%</label>
+        <input type="range" id="frLevel" min="5" max="45" value="22">
+      </div>
+      <div class="control-row">
+        <label>Noise Scale <span id="nsVal">3.2</span></label>
+        <input type="range" id="noiseScale" min="10" max="60" value="32">
+      </div>
+    </div>
+
+    <div>
+      <div class="section-label">Seed</div>
+      <div class="control-row">
+        <input type="text" id="seedInput" placeholder="e.g. ISTANBUL-1453" value="">
+      </div>
+    </div>
+
+    <div class="btn-group">
+      <button class="btn btn-primary" onclick="generateMap()">⟳ Generate</button>
+      <button class="btn btn-secondary" onclick="randomSeed()">⚄ Random Seed</button>
+      <button class="btn btn-success" onclick="exportJSON()">↓ Export JSON</button>
+    </div>
+
+    <div>
+      <div class="section-label">Stats</div>
+      <div class="stats-grid" id="statsGrid">
+        <div class="stat-box"><div class="stat-val" id="st-ocean">-</div><div class="stat-lbl">Ocean</div></div>
+        <div class="stat-box"><div class="stat-val" id="st-land">-</div><div class="stat-lbl">Land</div></div>
+        <div class="stat-box"><div class="stat-val" id="st-mt">-</div><div class="stat-lbl">Mountain</div></div>
+        <div class="stat-box"><div class="stat-val" id="st-fr">-</div><div class="stat-lbl">Forest</div></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-label">Legend</div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-swatch" style="background:#1a3a5c"></div>Deep Ocean</div>
+        <div class="legend-item"><div class="legend-swatch" style="background:#2563a8"></div>Ocean</div>
+        <div class="legend-item"><div class="legend-swatch" style="background:#3b82c4"></div>Coast</div>
+        <div class="legend-item"><div class="legend-swatch" style="background:#c8b560"></div>Plains</div>
+        <div class="legend-item"><div class="legend-swatch" style="background:#7ab648"></div>Grassland</div>
+        <div class="legend-item"><div class="legend-swatch" style="background:#2d7a2d"></div>Forest</div>
+        <div class="legend-item"><div class="legend-swatch" style="background:#8b7355"></div>Hills</div>
+        <div class="legend-item"><div class="legend-swatch" style="background:#9e9e9e"></div>Mountain</div>
+        <div class="legend-item"><div class="legend-swatch" style="background:#e8d5a0"></div>Desert</div>
+        <div class="legend-item"><div class="legend-swatch" style="background:#d0eef0"></div>Tundra</div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="canvas-wrap" id="canvasWrap">
+    <canvas id="mapCanvas"></canvas>
+    <div class="seed-badge" id="seedBadge">SEED: —</div>
+    <div class="coords-badge" id="coordsBadge">q:— r:—</div>
+    <div class="tooltip" id="tooltip"></div>
+  </div>
+</div>
+
+<script>
+// ─── PERLIN NOISE ────────────────────────────────────────────────────────────
+class Perlin {
+  constructor(seed) {
+    this.perm = new Uint8Array(512);
+    const p = new Uint8Array(256);
+    for (let i = 0; i < 256; i++) p[i] = i;
+    let s = seed >>> 0;
+    const rng = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
+    for (let i = 255; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [p[i], p[j]] = [p[j], p[i]];
+    }
+    for (let i = 0; i < 512; i++) this.perm[i] = p[i & 255];
+  }
+  fade(t) { return t * t * t * (t * (t * 6 - 15) + 10); }
+  lerp(a, b, t) { return a + t * (b - a); }
+  grad(h, x, y) {
+    const v = h & 3;
+    const u = v < 2 ? x : y, w = v < 2 ? y : x;
+    return ((v & 1) ? -u : u) + ((v & 2) ? -w : w);
+  }
+  noise(x, y) {
+    const X = Math.floor(x) & 255, Y = Math.floor(y) & 255;
+    x -= Math.floor(x); y -= Math.floor(y);
+    const u = this.fade(x), v = this.fade(y);
+    const p = this.perm;
+    const a = p[X] + Y, b = p[X+1] + Y;
+    return this.lerp(
+      this.lerp(this.grad(p[a], x, y),   this.grad(p[b], x-1, y),   u),
+      this.lerp(this.grad(p[a+1], x, y-1), this.grad(p[b+1], x-1, y-1), u),
+      v
+    );
+  }
+  octave(x, y, octs, lac, gain) {
+    let v = 0, amp = 1, freq = 1, max = 0;
+    for (let i = 0; i < octs; i++) {
+      v += this.noise(x * freq, y * freq) * amp;
+      max += amp; amp *= gain; freq *= lac;
+    }
+    return v / max;
+  }
+}
+
+// ─── TERRAIN TYPES ───────────────────────────────────────────────────────────
+const TERRAIN = {
+  DEEP_OCEAN: { id: 0, name: 'Deep Ocean',  color: '#1a3a5c' },
+  OCEAN:      { id: 1, name: 'Ocean',       color: '#2563a8' },
+  COAST:      { id: 2, name: 'Coast',       color: '#3b82c4' },
+  PLAINS:     { id: 3, name: 'Plains',      color: '#c8b560' },
+  GRASSLAND:  { id: 4, name: 'Grassland',   color: '#7ab648' },
+  FOREST:     { id: 5, name: 'Forest',      color: '#2d7a2d' },
+  HILLS:      { id: 6, name: 'Hills',       color: '#8b7355' },
+  MOUNTAIN:   { id: 7, name: 'Mountain',    color: '#9e9e9e' },
+  DESERT:     { id: 8, name: 'Desert',      color: '#e8d5a0' },
+  TUNDRA:     { id: 9, name: 'Tundra',      color: '#d0eef0' },
+};
+
+// ─── SEED UTILS ──────────────────────────────────────────────────────────────
+function hashSeed(str) {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  return h;
+}
+
+function randomSeed() {
+  const words = ['ANKARA','ISTANBUL','LONDON','THAMES','BOSPHORUS','ANATOLIA',
+    'OXFORD','ALBION','NILE','TIGRIS','DANUBE','ATLAS','AEGEAN','NORDIC'];
+  const n = Math.floor(Math.random() * 9000 + 1000);
+  const w = words[Math.floor(Math.random() * words.length)];
+  document.getElementById('seedInput').value = `${w}-${n}`;
+  generateMap();
+}
+
+// ─── STATE ───────────────────────────────────────────────────────────────────
+let mapData = null;
+let currentSeed = '';
+let HEX_SIZE = 14;
+let panX = 0, panY = 0;
+let isDragging = false, dragStartX = 0, dragStartY = 0;
+
+// ─── HEX MATH ────────────────────────────────────────────────────────────────
+// Pointy-top hex, offset coords (odd-r)
+function hexToPixel(col, row, size) {
+  const w = Math.sqrt(3) * size;
+  const h = 2 * size;
+  const x = w * col + (row % 2 === 1 ? w / 2 : 0);
+  const y = h * row * 0.75;
+  return { x, y };
+}
+
+function pixelToHex(px, py, size, cols, rows) {
+  // approximate inverse — good enough for hover detection
+  const h = 2 * size;
+  const w = Math.sqrt(3) * size;
+  let row = Math.round(py / (h * 0.75));
+  row = Math.max(0, Math.min(rows - 1, row));
+  const offset = (row % 2 === 1) ? w / 2 : 0;
+  let col = Math.round((px - offset) / w);
+  col = Math.max(0, Math.min(cols - 1, col));
+  return { col, row };
+}
+
+function drawHex(ctx, cx, cy, size, fillColor, stroke) {
+  ctx.beginPath();
+  for (let i = 0; i < 6; i++) {
+    const angle = Math.PI / 180 * (60 * i - 30);
+    const px = cx + size * Math.cos(angle);
+    const py = cy + size * Math.sin(angle);
+    i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+  }
+  ctx.closePath();
+  ctx.fillStyle = fillColor;
+  ctx.fill();
+  if (stroke) {
+    ctx.strokeStyle = 'rgba(0,0,0,0.18)';
+    ctx.lineWidth = 0.5;
+    ctx.stroke();
+  }
+}
+
+// ─── GENERATE ────────────────────────────────────────────────────────────────
+function generateMap() {
+  const cols = parseInt(document.getElementById('mapW').value);
+  const rows = parseInt(document.getElementById('mapH').value);
+  const seaPct = parseInt(document.getElementById('seaLevel').value) / 100;
+  const mtPct  = parseInt(document.getElementById('mtLevel').value) / 100;
+  const frPct  = parseInt(document.getElementById('frLevel').value) / 100;
+  const nsRaw  = parseInt(document.getElementById('noiseScale').value);
+  const scale  = nsRaw / 10;
+
+  let seedStr = document.getElementById('seedInput').value.trim();
+  if (!seedStr) seedStr = 'DEFAULT-' + Date.now();
+  currentSeed = seedStr;
+  document.getElementById('seedBadge').textContent = 'SEED: ' + seedStr;
+
+  const seedNum = hashSeed(seedStr);
+  const perlin = new Perlin(seedNum);
+  const perlin2 = new Perlin(seedNum ^ 0xdeadbeef);
+
+  // Build heightmap
+  const heights = [];
+  for (let r = 0; r < rows; r++) {
+    heights[r] = [];
+    for (let c = 0; c < cols; c++) {
+      const nx = c / cols * scale;
+      const ny = r / rows * scale;
+      // Blend two noise layers for more interesting continents
+      let v = perlin.octave(nx, ny, 6, 2.0, 0.5);
+      let v2 = perlin2.octave(nx * 0.7, ny * 0.7, 4, 2.2, 0.45);
+      v = (v + v2 * 0.4) / 1.4;
+      // Polar tundra gradient
+      const latFactor = Math.abs((r / rows) - 0.5) * 2; // 0=equator, 1=pole
+      heights[r][c] = { h: v, lat: latFactor };
+    }
+  }
+
+  // Normalise to 0-1
+  let mn = Infinity, mx = -Infinity;
+  for (let r = 0; r < rows; r++)
+    for (let c = 0; c < cols; c++) {
+      mn = Math.min(mn, heights[r][c].h);
+      mx = Math.max(mx, heights[r][c].h);
+    }
+  for (let r = 0; r < rows; r++)
+    for (let c = 0; c < cols; c++)
+      heights[r][c].h = (heights[r][c].h - mn) / (mx - mn);
+
+  // Classify terrain
+  const grid = [];
+  let counts = { 0:0,1:0,2:0,3:0,4:0,5:0,6:0,7:0,8:0,9:0 };
+
+  for (let r = 0; r < rows; r++) {
+    grid[r] = [];
+    for (let c = 0; c < cols; c++) {
+      const { h, lat } = heights[r][c];
+      let t;
+      const seaThresh = seaPct;
+      const coastThresh = seaPct + 0.06;
+      const mtThresh = 1 - mtPct;
+      const hillThresh = 1 - mtPct - 0.1;
+
+      if (h < seaThresh - 0.15)       t = TERRAIN.DEEP_OCEAN;
+      else if (h < seaThresh)         t = TERRAIN.OCEAN;
+      else if (h < coastThresh)       t = TERRAIN.COAST;
+      else if (h > mtThresh)          t = TERRAIN.MOUNTAIN;
+      else if (h > hillThresh)        t = TERRAIN.HILLS;
+      else {
+        // Land — determine by latitude + noise
+        if (lat > 0.8)                t = TERRAIN.TUNDRA;
+        else if (lat > 0.65) {
+          t = h > 0.6 ? TERRAIN.TUNDRA : TERRAIN.PLAINS;
+        } else {
+          // Use secondary noise for forest/desert/grassland
+          const landNoise = perlin2.octave(c / cols * 5, r / rows * 5, 3, 2, 0.5);
+          const norm = (landNoise + 1) / 2;
+          if (lat < 0.3 && norm < 0.35)    t = TERRAIN.DESERT;
+          else if (norm < frPct)            t = TERRAIN.FOREST;
+          else if (norm < frPct + 0.2)      t = TERRAIN.GRASSLAND;
+          else                              t = TERRAIN.PLAINS;
+        }
+      }
+      grid[r][c] = { terrain: t, col: c, row: r, h };
+      counts[t.id]++;
+    }
+  }
+
+  mapData = { cols, rows, grid, seed: seedStr };
+
+  // Stats
+  const total = cols * rows;
+  const oceanCount = (counts[0] + counts[1] + counts[2]);
+  const landCount  = total - oceanCount;
+  document.getElementById('st-ocean').textContent = Math.round(oceanCount/total*100) + '%';
+  document.getElementById('st-land').textContent  = Math.round(landCount/total*100) + '%';
+  document.getElementById('st-mt').textContent    = Math.round(counts[7]/total*100) + '%';
+  document.getElementById('st-fr').textContent    = Math.round(counts[5]/total*100) + '%';
+
+  // Reset pan
+  panX = 0; panY = 0;
+  renderMap();
+}
+
+// ─── RENDER ──────────────────────────────────────────────────────────────────
+function renderMap() {
+  if (!mapData) return;
+  const wrap = document.getElementById('canvasWrap');
+  const canvas = document.getElementById('mapCanvas');
+  const { cols, rows, grid } = mapData;
+
+  const W = wrap.clientWidth;
+  const H = wrap.clientHeight;
+  canvas.width = W;
+  canvas.height = H;
+
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#080c10';
+  ctx.fillRect(0, 0, W, H);
+
+  const size = HEX_SIZE;
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const { x, y } = hexToPixel(c, r, size);
+      const px = x + panX + 20;
+      const py = y + panY + 20;
+      const cell = grid[r][c];
+      // Shading by height within terrain
+      let col = cell.terrain.color;
+      drawHex(ctx, px, py, size - 0.5, col, true);
+
+      // Snow caps on mountains
+      if (cell.terrain.id === 7 && cell.h > 0.88) {
+        drawHex(ctx, px, py, size * 0.45, '#ffffff', false);
+      }
+    }
+  }
+}
+
+// ─── EXPORT ──────────────────────────────────────────────────────────────────
+function exportJSON() {
+  if (!mapData) return;
+  const { cols, rows, grid, seed } = mapData;
+  const tiles = [];
+  for (let r = 0; r < rows; r++)
+    for (let c = 0; c < cols; c++) {
+      const cell = grid[r][c];
+      tiles.push({ col: c, row: r, terrain: cell.terrain.id, name: cell.terrain.name });
+    }
+  const out = { seed, cols, rows, version: '0.1', tiles };
+  const blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `map_${seed.replace(/[^a-zA-Z0-9]/g,'_')}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ─── UI BINDINGS ─────────────────────────────────────────────────────────────
+const sliders = [
+  ['mapW','wVal', v => v],
+  ['mapH','hVal', v => v],
+  ['seaLevel','seaVal', v => v + '%'],
+  ['mtLevel','mtVal', v => v + '%'],
+  ['frLevel','frVal', v => v + '%'],
+  ['noiseScale','nsVal', v => (v/10).toFixed(1)],
+];
+
+sliders.forEach(([id, labelId, fmt]) => {
+  const el = document.getElementById(id);
+  el.addEventListener('input', () => {
+    document.getElementById(labelId).textContent = fmt(el.value);
+  });
+});
+
+// Pan
+const wrap = document.getElementById('canvasWrap');
+wrap.addEventListener('mousedown', e => {
+  isDragging = true;
+  dragStartX = e.clientX - panX;
+  dragStartY = e.clientY - panY;
+  wrap.style.cursor = 'grabbing';
+});
+window.addEventListener('mouseup', () => { isDragging = false; wrap.style.cursor = 'grab'; });
+window.addEventListener('mousemove', e => {
+  if (isDragging) {
+    panX = e.clientX - dragStartX;
+    panY = e.clientY - dragStartY;
+    renderMap();
+  }
+  // Tooltip
+  if (mapData) {
+    const rect = wrap.getBoundingClientRect();
+    const mx = e.clientX - rect.left - panX - 20;
+    const my = e.clientY - rect.top - panY - 20;
+    const { col, row } = pixelToHex(mx, my, HEX_SIZE, mapData.cols, mapData.rows);
+    const cell = mapData.grid[row]?.[col];
+    if (cell) {
+      document.getElementById('coordsBadge').textContent = `col:${col} row:${row}`;
+      const tt = document.getElementById('tooltip');
+      tt.style.display = 'block';
+      tt.style.left = (e.clientX - rect.left + 14) + 'px';
+      tt.style.top  = (e.clientY - rect.top - 30) + 'px';
+      tt.textContent = `${cell.terrain.name}  [${col},${row}]  h:${cell.h.toFixed(2)}`;
+    }
+  }
+});
+wrap.addEventListener('mouseleave', () => {
+  document.getElementById('tooltip').style.display = 'none';
+});
+
+// Zoom
+wrap.addEventListener('wheel', e => {
+  e.preventDefault();
+  const delta = e.deltaY > 0 ? -1 : 1;
+  HEX_SIZE = Math.max(6, Math.min(28, HEX_SIZE + delta));
+  renderMap();
+}, { passive: false });
+
+// Resize
+window.addEventListener('resize', renderMap);
+
+// ─── INIT ────────────────────────────────────────────────────────────────────
+document.getElementById('seedInput').value = 'ISTANBUL-1453';
+generateMap();
+</script>
+</body>
+</html>
